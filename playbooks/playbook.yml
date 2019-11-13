@@ -1,0 +1,26 @@
+- hosts: all
+  gather_facts: yes
+
+  vars_files:
+    - vars.yml
+
+  roles:
+    - k8s-common
+
+- hosts: master
+  gather_facts: yes
+
+  vars_files:
+    - vars.yml
+
+  roles:
+    - k8s-master
+
+- hosts: workers
+  gather_facts: yes
+
+  vars_files:
+    - vars.yml
+
+  roles:
+    - k8s-worker    

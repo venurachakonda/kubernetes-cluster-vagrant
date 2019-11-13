@@ -1,0 +1,49 @@
+---
+- name: initialize the cluster
+  shell: kubeadm init --apiserver-advertise-address {{ apiserver_advertise_address }} --pod-network-cidr={{ pod_network_cidr }} >> cluster_initialized.txt
+  args:
+    chdir: $HOME
+    creates: cluster_initialized.txt
+
+- name: create .kube directory
+  become: yes
+  become_user: ubuntu
+  file:
+    path: $HOME/.kube
+    state: directory
+    mode: 0755
+
+- name: copy admin.conf to user's kube config
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ubuntu/.kube/config
+    remote_src: yes
+    owner: ubuntu
+
+- name: copy kubeconfig to local vagrant
+  copy:
+    src: /home/ubuntu/.kube/config
+    dest: /vagrant/kubeconfig
+    remote_src: yes   
+
+- name: install Pod network
+  become: yes
+  become_user: ubuntu
+  shell: kubectl apply -f {{ kube_flannel_manifest }} >> pod_network_setup.txt
+  args:
+    chdir: $HOME
+    creates: pod_network_setup.txt
+
+- name: Get the kubeadm join command from the Kubernetes master.
+  command: kubeadm token create --print-join-command
+  changed_when: false
+  when: kubernetes_role == 'master'
+  register: kubernetes_join_command_result
+
+- name: Set the kubeadm join command globally.
+  set_fact:
+    kubernetes_join_command: "{{ kubernetes_join_command_result.stdout }}"
+  when: kubernetes_join_command_result.stdout is defined
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  with_items: "{{ groups['all'] }}"
